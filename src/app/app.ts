@@ -1,12 +1,17 @@
-import { Component, signal } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { FormControl, ReactiveFormsModule } from '@angular/forms';
+
+import { LocatieAutocomplete } from './locatie/locatie-autocomplete/locatie-autocomplete';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet],
+  imports: [ReactiveFormsModule, LocatieAutocomplete],
   templateUrl: './app.html',
-  styleUrl: './app.scss'
+  styleUrl: './app.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class App {
-  protected readonly title = signal('locaties');
+  protected readonly address = new FormControl<string | null>(null);
+  protected readonly station = new FormControl<string | null>('UT');
+  protected readonly anything = new FormControl<string | null>(null);
 }

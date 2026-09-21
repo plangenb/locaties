@@ -1,0 +1,66 @@
+:host {
+  display: block;
+}
+
+.control {
+  position: relative;
+}
+
+.field {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  font: inherit;
+  border: 1px solid #8a8f98;
+  border-radius: 4px;
+
+  &:focus {
+    outline: 2px solid #1a5fb4;
+    outline-offset: 0;
+  }
+}
+
+.list {
+  position: absolute;
+  z-index: 10;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-height: 20rem;
+  margin: 2px 0 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  background: #fff;
+  border: 1px solid #8a8f98;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 15%);
+}
+
+.message {
+  padding: 0.5rem 0.75rem;
+  color: #5c6068;
+}
+
+.option {
+  display: flex;
+  flex-direction: column;
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+
+  &:hover,
+  &.active {
+    background: #e6effb;
+  }
+}
+
+.secondary {
+  font-size: 0.85em;
+  color: #5c6068;
+}
+
+.description {
+  margin: 0.25rem 0 0;
+  font-size: 0.85em;
+  color: #5c6068;
+}

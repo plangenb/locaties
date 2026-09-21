@@ -1,0 +1,55 @@
+<div class="control">
+  <input
+    #field
+    class="field"
+    type="text"
+    autocomplete="off"
+    role="combobox"
+    aria-autocomplete="list"
+    [attr.aria-expanded]="open()"
+    [attr.aria-controls]="listId"
+    [attr.aria-activedescendant]="activeId()"
+    [attr.aria-describedby]="description() ? descriptionId : null"
+    [placeholder]="placeholder()"
+    [disabled]="disabled()"
+    [value]="inputText()"
+    (focus)="openDropdown()"
+    (click)="openDropdown()"
+    (input)="onInput(field.value)"
+    (keydown)="onKeydown($event)"
+    (blur)="onBlur()"
+  />
+
+  @if (open()) {
+    <!-- mousedown is prevented so the input keeps focus (and does not blur) when an option is clicked -->
+    <ul class="list" role="listbox" [id]="listId" (mousedown)="$event.preventDefault()">
+      @if (status() === 'loading') {
+        <li class="message" role="presentation">Locaties worden geladen</li>
+      } @else if (status() === 'error') {
+        <li class="message" role="presentation">Locaties konden niet worden geladen</li>
+      } @else if (results().length === 0) {
+        <li class="message" role="presentation">Geen locaties gevonden</li>
+      } @else {
+        @for (item of results(); track $index) {
+          <li
+            class="option"
+            role="option"
+            [id]="optionId($index)"
+            [class.active]="$index === activeIndex()"
+            [attr.aria-selected]="$index === activeIndex()"
+            (click)="select(item)"
+          >
+            <span class="primary">{{ item.omschrijving ?? item.key }}</span>
+            @if (secondaryText(item); as secondary) {
+              <span class="secondary">{{ secondary }}</span>
+            }
+          </li>
+        }
+      }
+    </ul>
+  }
+</div>
+
+@if (description(); as text) {
+  <p class="description" [id]="descriptionId">{{ text }}</p>
+}
