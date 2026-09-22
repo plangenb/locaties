@@ -1,4 +1,6 @@
+import { Component } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Subject } from 'rxjs';
 
 import { LocatieApiService } from '../locatie-api.service';
@@ -22,7 +24,7 @@ describe('LocatieAutocomplete', () => {
   let fixture: ComponentFixture<LocatieAutocomplete>;
   let component: LocatieAutocomplete;
   let requests: { params: LocatieSearchParams; response: Subject<LocatieModel[]> }[];
-  let onChange: jasmine.Spy<(value: string | null) => void>;
+  let onChange: jasmine.Spy<(value: LocatieModel | null) => void>;
   let onTouched: jasmine.Spy<() => void>;
 
   const input = () => fixture.nativeElement.querySelector('input') as HTMLInputElement;
@@ -70,7 +72,7 @@ describe('LocatieAutocomplete', () => {
     component = fixture.componentInstance;
     fixture.componentRef.setInput('key', 'postcode');
     fixture.componentRef.setInput('types', ['adres', 'recent']);
-    onChange = jasmine.createSpy<(value: string | null) => void>('onChange');
+    onChange = jasmine.createSpy<(value: LocatieModel | null) => void>('onChange');
     onTouched = jasmine.createSpy<() => void>('onTouched');
     component.registerOnChange(onChange);
     component.registerOnTouched(onTouched);
@@ -163,7 +165,7 @@ describe('LocatieAutocomplete', () => {
 
     press('Enter');
 
-    expect(onChange).toHaveBeenCalledOnceWith('1012JS');
+    expect(onChange).toHaveBeenCalledOnceWith(DAM);
     expect(input().value).toBe('1012JS');
     expect(component.selected()).toEqual(DAM);
     expect(fixture.nativeElement.querySelector('[role="listbox"]')).toBeNull();
@@ -185,7 +187,7 @@ describe('LocatieAutocomplete', () => {
 
       press('Enter');
 
-      expect(onChange).toHaveBeenCalledOnceWith('3512JC');
+      expect(onChange).toHaveBeenCalledOnceWith(DOMPLEIN);
       expect(input().value).toBe('3512JC');
       expect(component.selected()).toEqual(DOMPLEIN);
       expect(fixture.nativeElement.querySelector('[role="listbox"]')).toBeNull();
@@ -226,7 +228,7 @@ describe('LocatieAutocomplete', () => {
       expect(onChange).not.toHaveBeenCalled();
 
       respond(1, [DOMPLEIN, DAM]);
-      expect(onChange).toHaveBeenCalledOnceWith('3512JC');
+      expect(onChange).toHaveBeenCalledOnceWith(DOMPLEIN);
 
       // The skipped debounce does not fire a second search.
       jasmine.clock().tick(500);
@@ -245,7 +247,7 @@ describe('LocatieAutocomplete', () => {
       expect(onChange).not.toHaveBeenCalled();
 
       respond(requests.length - 1, [DAM, DOMPLEIN]);
-      expect(onChange).toHaveBeenCalledOnceWith('1012JS');
+      expect(onChange).toHaveBeenCalledOnceWith(DAM);
     });
 
     it('does not select from the results of an earlier text', () => {
@@ -256,7 +258,7 @@ describe('LocatieAutocomplete', () => {
       expect(onChange).not.toHaveBeenCalled();
 
       respond(requests.length - 1, [DAM]);
-      expect(onChange).toHaveBeenCalledOnceWith('1012JS');
+      expect(onChange).toHaveBeenCalledOnceWith(DAM);
     });
 
     it('selects nothing when the api fails', () => {
@@ -301,15 +303,16 @@ describe('LocatieAutocomplete', () => {
     });
   });
 
-  it('selects a location on click and shows its key', () => {
+  it('selects a location on click, shows its key and returns the full model to the form', () => {
     focus();
     respond(0, [DOMPLEIN, DAM]);
 
     (fixture.nativeElement.querySelectorAll('.option')[0] as HTMLElement).click();
     fixture.detectChanges();
 
-    expect(onChange).toHaveBeenCalledOnceWith('3512JC');
+    // The field shows the key, but the form gets the whole LocatieModel, not just the key.
     expect(input().value).toBe('3512JC');
+    expect(onChange).toHaveBeenCalledOnceWith(DOMPLEIN);
     expect(fixture.nativeElement.querySelector('[role="listbox"]')).toBeNull();
   });
 
@@ -503,10 +506,155 @@ describe('LocatieAutocomplete', () => {
     });
   });
 
+  describe('filter toggle', () => {
+    const filterButton = () =>
+      fixture.nativeElement.querySelector('.filter-toggle') as HTMLButtonElement | null;
+
+    it('is not shown without a filterType', () => {
+      focus();
+
+      expect(filterButton()).toBeNull();
+    });
+
+    it('shows the label and searches only that type once toggled on', () => {
+      fixture.componentRef.setInput('filterType', 'station');
+      fixture.componentRef.setInput('filterLabel', 'Alleen stations');
+      focus();
+      respond(0, []);
+
+      expect(filterButton()?.textContent?.trim()).toBe('Alleen stations');
+      expect(filterButton()?.getAttribute('aria-pressed')).toBe('false');
+
+      filterButton()!.click();
+      fixture.detectChanges();
+
+      expect(filterButton()?.getAttribute('aria-pressed')).toBe('true');
+      expect(requests).toHaveSize(2);
+      expect(requests[1].params.types).toEqual(['station']);
+    });
+
+    it('searches the configured types again once toggled off', () => {
+      fixture.componentRef.setInput('filterType', 'station');
+      focus();
+      respond(0, []);
+
+      filterButton()!.click();
+      fixture.detectChanges();
+      respond(1, []);
+      filterButton()!.click();
+      fixture.detectChanges();
+
+      expect(filterButton()?.getAttribute('aria-pressed')).toBe('false');
+      expect(requests).toHaveSize(3);
+      expect(requests[2].params.types).toEqual(['adres', 'recent']);
+    });
+
+    it('resets when a new value is loaded', () => {
+      fixture.componentRef.setInput('filterType', 'station');
+      focus();
+      respond(0, []);
+      filterButton()!.click();
+      fixture.detectChanges();
+      respond(1, []);
+      expect(filterButton()?.getAttribute('aria-pressed')).toBe('true');
+
+      // writeValue does not close the dropdown, so the (still rendered) button is checked directly.
+      component.writeValue(null);
+      fixture.detectChanges();
+
+      expect(filterButton()?.getAttribute('aria-pressed')).toBe('false');
+    });
+  });
+
   it('can be disabled', () => {
     component.setDisabledState(true);
     fixture.detectChanges();
 
     expect(input().disabled).toBe(true);
+  });
+});
+
+describe('LocatieAutocomplete met reactive forms validatie', () => {
+  @Component({
+    imports: [ReactiveFormsModule, LocatieAutocomplete],
+    template: `<app-locatie-autocomplete key="postcode" [formControl]="control" />`,
+  })
+  class HostComponent {
+    readonly control = new FormControl<LocatieModel | string | null>(null, Validators.required);
+  }
+
+  let fixture: ComponentFixture<HostComponent>;
+  let requests: { params: LocatieSearchParams; response: Subject<LocatieModel[]> }[];
+
+  const input = () => fixture.nativeElement.querySelector('input') as HTMLInputElement;
+  const control = () => fixture.componentInstance.control;
+
+  beforeEach(() => {
+    requests = [];
+    TestBed.configureTestingModule({
+      providers: [
+        {
+          provide: LocatieApiService,
+          useValue: {
+            search: (params: LocatieSearchParams) => {
+              const response = new Subject<LocatieModel[]>();
+              requests.push({ params, response });
+              return response;
+            },
+          },
+        },
+      ],
+    });
+
+    fixture = TestBed.createComponent(HostComponent);
+    fixture.detectChanges();
+  });
+
+  it('shows no invalid state before the field is touched', () => {
+    expect(input().classList).not.toContain('invalid');
+    expect(fixture.nativeElement.querySelector('.error')).toBeNull();
+  });
+
+  it('shows the invalid class and a message once a required field is touched and empty', () => {
+    input().dispatchEvent(new Event('focus'));
+    input().dispatchEvent(new Event('blur'));
+    fixture.detectChanges();
+
+    expect(input().classList).toContain('invalid');
+    const error = fixture.nativeElement.querySelector('.error') as HTMLElement;
+    expect(error.textContent?.trim()).toBe('Dit veld is verplicht.');
+    expect(input().getAttribute('aria-describedby')).toBe(error.id);
+  });
+
+  it('clears the invalid state once a valid location is selected', () => {
+    input().dispatchEvent(new Event('focus'));
+    input().dispatchEvent(new Event('blur'));
+    fixture.detectChanges();
+    expect(input().classList).toContain('invalid');
+
+    // The first (unfinished) search was for the earlier focus; blur left the dropdown closed, so
+    // this second focus starts a new one.
+    input().dispatchEvent(new Event('focus'));
+    const last = requests.length - 1;
+    requests[last].response.next([
+      { key: 'UT', omschrijving: 'Utrecht Centraal' } satisfies LocatieModel,
+    ]);
+    requests[last].response.complete();
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector('.option') as HTMLElement).click();
+    fixture.detectChanges();
+
+    expect(input().classList).not.toContain('invalid');
+    expect(fixture.nativeElement.querySelector('.error')).toBeNull();
+    expect(control().value).toEqual({ key: 'UT', omschrijving: 'Utrecht Centraal' });
+  });
+
+  it('reacts to errors set from outside, such as an async or server-side validator', () => {
+    control().setErrors({ email: true });
+    control().markAsTouched();
+    fixture.detectChanges();
+
+    const error = fixture.nativeElement.querySelector('.error') as HTMLElement;
+    expect(error.textContent?.trim()).toBe('Vul een geldig e-mailadres in.');
   });
 });

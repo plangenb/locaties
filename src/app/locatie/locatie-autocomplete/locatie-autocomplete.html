@@ -9,10 +9,11 @@
     [attr.aria-expanded]="open()"
     [attr.aria-controls]="listId"
     [attr.aria-activedescendant]="activeId()"
-    [attr.aria-describedby]="description() ? descriptionId : null"
+    [attr.aria-describedby]="description() || errorMessage() ? descriptionId : null"
     [placeholder]="placeholder()"
     [disabled]="disabled()"
     [value]="inputText()"
+    [class.invalid]="invalid()"
     (focus)="openDropdown()"
     (click)="openDropdown()"
     (input)="onInput(field.value)"
@@ -21,6 +22,18 @@
   />
 
   @if (open()) {
+    @if (filterType(); as type) {
+      <button
+        type="button"
+        class="filter-toggle"
+        [attr.aria-pressed]="filterActive()"
+        (mousedown)="$event.preventDefault()"
+        (click)="toggleFilter()"
+      >
+        {{ filterButtonLabel() }}
+      </button>
+    }
+
     <!-- mousedown is prevented so the input keeps focus (and does not blur) when an option is clicked -->
     <ul class="list" role="listbox" [id]="listId" (mousedown)="$event.preventDefault()">
       @if (status() === 'loading') {
@@ -50,6 +63,8 @@
   }
 </div>
 
-@if (description(); as text) {
+@if (errorMessage(); as msg) {
+  <p class="error" role="alert" [id]="descriptionId">{{ msg }}</p>
+} @else if (description(); as text) {
   <p class="description" [id]="descriptionId">{{ text }}</p>
 }

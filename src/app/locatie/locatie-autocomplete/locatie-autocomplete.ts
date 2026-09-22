@@ -3,15 +3,16 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  DestroyRef,
   ElementRef,
-  forwardRef,
   inject,
   input,
   linkedSignal,
+  OnInit,
   signal,
 } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
-import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
+import { ControlValueAccessor, NgControl } from '@angular/forms';
 import {
   catchError,
   debounce,
@@ -44,22 +45,28 @@ const INITIAL_SEARCH: SearchState = { status: 'loading', query: null, results: [
 
 let nextId = 0;
 
+/** Dutch text for the most common reactive-forms validators. */
+const ERROR_MESSAGES: Record<string, string> = {
+  required: 'Dit veld is verplicht.',
+  email: 'Vul een geldig e-mailadres in.',
+  minlength: 'De waarde is te kort.',
+  maxlength: 'De waarde is te lang.',
+  pattern: 'De waarde heeft niet de juiste vorm.',
+};
+
 @Component({
   selector: 'app-locatie-autocomplete',
   templateUrl: './locatie-autocomplete.html',
   styleUrl: './locatie-autocomplete.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  providers: [
-    {
-      provide: NG_VALUE_ACCESSOR,
-      useExisting: forwardRef(() => LocatieAutocomplete),
-      multi: true,
-    },
-  ],
+  // No NG_VALUE_ACCESSOR provider: this component wires itself up as the value accessor of its
+  // own NgControl below, which avoids a circular dependency between the two.
 })
-export class LocatieAutocomplete implements ControlValueAccessor {
+export class LocatieAutocomplete implements ControlValueAccessor, OnInit {
   private readonly api = inject(LocatieApiService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly ngControl = inject(NgControl, { optional: true, self: true });
+  private readonly destroyRef = inject(DestroyRef);
 
   /** Types to search in. Empty means: all types. */
   readonly types = input<readonly LocatieType[]>([]);
@@ -68,6 +75,10 @@ export class LocatieAutocomplete implements ControlValueAccessor {
   readonly maxResults = input(10);
   readonly debounceMs = input(300);
   readonly placeholder = input('');
+  /** Type for the optional filter toggle above the results. No type means: no filter button. */
+  readonly filterType = input<LocatieType | undefined>(undefined);
+  /** Label of the filter toggle; falls back to the type itself. */
+  readonly filterLabel = input<string | undefined>(undefined);
 
   private readonly id = `locatie-autocomplete-${nextId++}`;
   protected readonly listId = `${this.id}-list`;
@@ -75,8 +86,17 @@ export class LocatieAutocomplete implements ControlValueAccessor {
   protected readonly open = signal(false);
   protected readonly inputText = signal('');
   protected readonly disabled = signal(false);
+  /** Whether the filter toggle is active; resets when a new value is loaded. */
+  protected readonly filterActive = signal(false);
   /** The location that belongs to the current value, once known. */
   readonly selected = signal<LocatieModel | null>(null);
+
+  /** The types actually searched: only `filterType` while the filter toggle is active. */
+  protected readonly effectiveTypes = computed(() => {
+    const filterType = this.filterType();
+    return this.filterActive() && filterType ? [filterType] : this.types();
+  });
+  protected readonly filterButtonLabel = computed(() => this.filterLabel() ?? this.filterType());
 
   private readonly typed$ = new Subject<string>();
   private readonly immediate$ = new Subject<string>();
@@ -98,14 +118,36 @@ export class LocatieAutocomplete implements ControlValueAccessor {
   /** Short description of the selected location, shown below the field. */
   protected readonly description = computed(() => this.selected()?.omschrijving || null);
 
+  // Bridges the NgControl's non-signal state (touched, status, errors) into a signal. Bumped
+  // from ngOnInit, because `ngControl.control` is only set after construction (by the [formControl]
+  // input binding), not yet available here in a field initializer.
+  private readonly formStateTick = signal(0);
+  protected readonly invalid = computed(() => {
+    this.formStateTick();
+    return !!(this.ngControl?.invalid && this.ngControl?.touched);
+  });
+  protected readonly errorMessage = computed(() => {
+    this.formStateTick();
+    if (!this.invalid()) {
+      return null;
+    }
+    const errorKey = Object.keys(this.ngControl?.errors ?? {})[0];
+    return errorKey ? (ERROR_MESSAGES[errorKey] ?? 'Ongeldige waarde.') : null;
+  });
+
   private committedKey: string | null = null;
   private reloadSubscription?: Subscription;
   /** An Enter that waits for the results of the current text. */
   private pendingEnter = false;
-  private onChange: (value: string | null) => void = () => {};
+  /** The full location, not just the key, is returned to the form on selection. */
+  private onChange: (value: LocatieModel | null) => void = () => {};
   private onTouched: () => void = () => {};
 
   constructor() {
+    if (this.ngControl) {
+      this.ngControl.valueAccessor = this;
+    }
+
     // Keep the active row (arrow keys) visible in the scrollable list.
     afterRenderEffect(() => {
       const id = this.activeId();
@@ -113,6 +155,13 @@ export class LocatieAutocomplete implements ControlValueAccessor {
         this.host.nativeElement.querySelector(`#${id}`)?.scrollIntoView({ block: 'nearest' });
       }
     });
+  }
+
+  ngOnInit(): void {
+    // By now [formControl]/formControlName has set ngControl.control, unlike in the constructor.
+    this.ngControl?.control?.events
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.formStateTick.update((tick) => tick + 1));
   }
 
   /** Every query (typed with debounce, or immediate) becomes a search; the state follows it. */
@@ -125,7 +174,7 @@ export class LocatieAutocomplete implements ControlValueAccessor {
       switchMap((query) =>
         this.api
           .search({
-            types: this.types(),
+            types: this.effectiveTypes(),
             key: this.key(),
             query,
             maxresult: this.maxResults(),
@@ -155,6 +204,7 @@ export class LocatieAutocomplete implements ControlValueAccessor {
   writeValue(value: string | null): void {
     this.reloadSubscription?.unsubscribe();
     this.pendingEnter = false;
+    this.filterActive.set(false);
     this.committedKey = value || null;
     this.inputText.set(value ?? '');
     this.selected.set(null);
@@ -168,7 +218,7 @@ export class LocatieAutocomplete implements ControlValueAccessor {
       .subscribe({ next: (results) => this.selected.set(results[0] ?? null), error: () => {} });
   }
 
-  registerOnChange(fn: (value: string | null) => void): void {
+  registerOnChange(fn: (value: LocatieModel | null) => void): void {
     this.onChange = fn;
   }
 
@@ -193,6 +243,12 @@ export class LocatieAutocomplete implements ControlValueAccessor {
     }
     this.open.set(true);
     this.immediate$.next('');
+  }
+
+  protected toggleFilter(): void {
+    this.filterActive.set(!this.filterActive());
+    // Re-run the current search immediately, now with the toggled types.
+    this.immediate$.next(this.inputText());
   }
 
   protected onInput(text: string): void {
@@ -287,7 +343,7 @@ export class LocatieAutocomplete implements ControlValueAccessor {
     this.selected.set(item);
     this.inputText.set(item.key);
     this.open.set(false);
-    this.onChange(item.key);
+    this.onChange(item);
   }
 
   protected secondaryText(item: LocatieModel): string {

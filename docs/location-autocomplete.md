@@ -12,7 +12,7 @@ De api heeft een get om de opdracht uit te voeren. De volgende parameters kunnen
 - key
 - query
 - maxresult (aantal terug te geven resultaten)
-  
+
 zie hieronder voor een beschrijving van het gedrag van deze parameters.
 
 ### Output
@@ -64,11 +64,30 @@ In dit veld kan worden aangeven welk veld terug moet komen als sleutel. Dit kan 
 - Zijn er geen resultaten of gaat de api-call fout, dan gebeurt er niets en blijft de getypte tekst staan.
 - Verder typen, Escape, het veld verlaten of op een rij klikken annuleert een Enter die nog op resultaten wacht.
 - Is het veld leeg (er is alleen de lijst met recente locaties), dan selecteert Enter niets.
-- Onder het veld wil ik graag een korte omschrijving van het gekozen item. Bv Utrecht centaal of Science park.
+
+### Omschrijving van het gekozen item
+
+- Onder het veld staat een korte omschrijving van het gekozen item, bijvoorbeeld "Utrecht Centraal" of "Science Park".
+
+### Teruggegeven waarde
+
+- De key blijft de invoer voor het opnieuw laden van een bestaande waarde (zie "Opnieuw laden" hieronder).
+- Bij een selectie door de gebruiker geeft de autocomplete niet de key terug aan het formulier, maar het volledige `LocatieModel`.
 
 ### Scrolling
 
 - Als de gebruiker met de cursor omhoog en omlaag toetsen door de lijst loopt dan scrollt de lijst automatische mee.
+
+### Filteren
+
+- Boven de resultaten kan een knop staan waarmee simpel gefilterd wordt op één vast, vooraf ingesteld type. Bijvoorbeeld een knop "Alleen stations" als de autocomplete op meerdere types tegelijk zoekt.
+- De knop is een aan/uit-schakelaar: aan filtert de zoekopdracht tot dat ene type, uit doorzoekt weer alle ingestelde types.
+
+### Reactive forms
+
+- Het reactive form wordt in de parent gemaakt.
+- Op basis van de validatiestatus van het form-control (bijvoorbeeld `required`) komt er een class op de textbox, en een foutmelding onder het veld, zodra het form-control ongeldig én aangeraakt is.
+- We kunnen zo reageren op fouten die uit het reactive form komen, zonder dat de parent zelf in het component hoeft te kijken.
 
 ### Opnieuw laden
 

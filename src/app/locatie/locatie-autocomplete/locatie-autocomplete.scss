@@ -18,6 +18,29 @@
     outline: 2px solid #1a5fb4;
     outline-offset: 0;
   }
+
+  &.invalid {
+    border-color: #c01c28;
+  }
+}
+
+.filter-toggle {
+  display: block;
+  margin: 2px 0 0;
+  padding: 0.3rem 0.75rem;
+  font: inherit;
+  font-size: 0.85em;
+  color: #1a5fb4;
+  background: #f3f6fb;
+  border: 1px solid #8a8f98;
+  border-radius: 4px;
+  cursor: pointer;
+
+  &[aria-pressed='true'] {
+    color: #fff;
+    background: #1a5fb4;
+    border-color: #1a5fb4;
+  }
 }
 
 .list {
@@ -63,4 +86,10 @@
   margin: 0.25rem 0 0;
   font-size: 0.85em;
   color: #5c6068;
+}
+
+.error {
+  margin: 0.25rem 0 0;
+  font-size: 0.85em;
+  color: #c01c28;
 }

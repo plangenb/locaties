@@ -10,7 +10,7 @@
       [formControl]="address"
     />
     <p>
-      Waarde: <code>{{ address.value ?? 'geen' }}</code>
+      Waarde: <code>{{ describeValue(address.value) }}</code>
     </p>
   </section>
 
@@ -23,15 +23,21 @@
       [formControl]="station"
     />
     <p>
-      Waarde: <code>{{ station.value ?? 'geen' }}</code>
+      Waarde: <code>{{ describeValue(station.value) }}</code>
     </p>
   </section>
 
   <section>
-    <h2>Alle types (key: plaats)</h2>
-    <app-locatie-autocomplete key="plaats" placeholder="Zoek een plaats" [formControl]="anything" />
+    <h2>Alle types, met filter op stations (key: plaats)</h2>
+    <app-locatie-autocomplete
+      key="plaats"
+      placeholder="Zoek een plaats"
+      filterType="station"
+      filterLabel="Alleen stations"
+      [formControl]="anything"
+    />
     <p>
-      Waarde: <code>{{ anything.value ?? 'geen' }}</code>
+      Waarde: <code>{{ describeValue(anything.value) }}</code>
     </p>
   </section>
 </main>
