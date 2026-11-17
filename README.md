@@ -1,59 +1,83 @@
-# Locaties
+# Codex + PowerShell: veilige bestandsbewerkingen
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.22.
+Dit pakket bevat een globale `AGENTS.md` voor Codex, gericht op Windows,
+PowerShell 7, encoding en betrouwbaar wijzigen van bronbestanden.
 
-## Development server
+## Inhoud
 
-To start a local development server, run:
-
-```bash
-ng serve
+```text
+codex-powershell-file-safety/
+├── .codex/
+│   └── AGENTS.md
+├── scripts/
+│   └── Install-GlobalAgents.ps1
+└── README.md
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+## Installeren (aanbevolen)
 
-## Code scaffolding
+1. Pak de ZIP uit.
+2. Open PowerShell 7 (of de PowerShell-terminal in VS Code).
+3. Ga naar de uitgepakte map.
+4. Voer uit:
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+   ```powershell
+   Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+   .\scripts\Install-GlobalAgents.ps1
+   ```
 
-```bash
-ng generate component component-name
+5. Het script installeert de instructies naar `$HOME\.codex\AGENTS.md`.
+   Als daar al een bestand staat, maakt het script eerst een timestamp-back-up.
+6. Sluit Codex volledig af en start een nieuwe Codex-sessie.
+
+Codex leest de globale `AGENTS.md` uit zijn Codex-home directory automatisch.
+Standaard is dat `$HOME\.codex`. Als je `CODEX_HOME` hebt ingesteld, gebruikt
+Codex die map in plaats daarvan. Het installatiescript houdt daar rekening mee.
+
+## Controleren
+
+Voer in een nieuwe Codex-sessie bijvoorbeeld deze opdracht uit:
+
+```text
+Welke globale en projectgebonden AGENTS.md-instructies heb je geladen?
+Vat de regels over PowerShell, encoding en bestandsbewerkingen samen.
 ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+Je kunt ook `/status` gebruiken om de actieve instructiebronnen te bekijken,
+als jouw Codex-versie die informatie daar toont.
 
-```bash
-ng generate --help
+## PowerShell 7 controleren
+
+```powershell
+$PSVersionTable.PSVersion
 ```
 
-## Building
+De major version moet `7` zijn. Als je nog Windows PowerShell 5.1 gebruikt,
+selecteer dan in VS Code de PowerShell 7-terminal (`pwsh`).
 
-To build the project run:
+## Optioneel: console-encoding instellen
 
-```bash
-ng build
+Dit is optioneel. Het beïnvloedt console-invoer/-uitvoer, maar garandeert niet
+de encoding van elk bestand dat een programma schrijft.
+
+Voer dit uit in PowerShell 7:
+
+```powershell
+$utf8 = [System.Text.UTF8Encoding]::new($false)
+[Console]::InputEncoding = $utf8
+[Console]::OutputEncoding = $utf8
+$OutputEncoding = $utf8
 ```
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+Je kunt dit aan je PowerShell-profiel toevoegen als je dit blijvend wilt
+instellen. Doe dit alleen als je dat zelf wilt; het installatiescript wijzigt
+je PowerShell-profiel niet.
 
-## Running unit tests
+## Belangrijk
 
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+- Dit pakket wijzigt je bestaande `config.toml` niet.
+- Voor globale Codex-instructies is `AGENTS.md` in de Codex-home directory
+  voldoende; er is geen `model_instructions_file`-instelling nodig.
+- Projectspecifieke `AGENTS.md`-bestanden kunnen aanvullende instructies geven.
+- De instructies verkleinen de kans op quoting- en encodingfouten, maar kunnen
+  model- of toolfouten niet volledig uitsluiten.
